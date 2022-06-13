@@ -14,6 +14,9 @@ fn demo() {
     };
     user.greet();
 
+    println!("--> And printing debug info:");
+    println!("{user:#?}");
+
     println!("\n1. Create a user with from:");
     let user = User::from("Bob");
     user.greet();
@@ -29,15 +32,32 @@ fn demo() {
     println!("\n4. Create a user from console input:");
     let user = User::from_stdin();
     user.greet();
+
+    println!("\n5. Create a user by cloning the last one:");
+    let user2 = user.clone();
+    user2.greet();
+
+    println!("--> And check for equality:");
+    let is_equal = user == user2;
+    println!("{is_equal:#?}");
 }
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct User {
     name: String,
 }
 
 impl User {
     fn greet(&self) {
-        println!("Hello, {}!", self)
+        println!("Hello, {self}!")
+    }
+
+    fn new(name: String) -> Self {
+        let name = name.trim();
+        if name.chars().count() > 0 {
+            return Self { name: name.into() };
+        }
+        Self::default()
     }
 
     fn from_env() -> Self {
@@ -58,19 +78,14 @@ impl User {
         stdout().flush().unwrap();
 
         let mut input = String::new();
-        stdin().read_line(&mut input).expect("I want a name!");
-
-        let input = input.trim();
-        if input.chars().count() > 0 {
-            return Self::from(input);
-        }
-        Self::default()
+        stdin().read_line(&mut input).expect("That's not a name!");
+        Self::new(input)
     }
 }
 
 impl Default for User {
     fn default() -> Self {
-        Self::from("World")
+        Self::new("World".into())
     }
 }
 
@@ -81,15 +96,13 @@ impl fmt::Display for User {
 }
 
 impl From<&str> for User {
-    fn from(s: &str) -> Self {
-        Self {
-            name: s.to_string(),
-        }
+    fn from(name: &str) -> Self {
+        Self::new(name.into())
     }
 }
 
 impl From<String> for User {
     fn from(name: String) -> Self {
-        Self { name }
+        Self::new(name)
     }
 }
