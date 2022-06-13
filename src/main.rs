@@ -4,6 +4,10 @@ use std::fmt;
 use std::io::{stdin, stdout, Write};
 
 fn main() {
+    demo();
+}
+
+fn demo() {
     println!("\n0. Create a user directly:");
     let user = User {
         name: "Alice".to_string(),
