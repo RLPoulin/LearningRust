@@ -1,12 +1,14 @@
 use std::default::Default;
 use std::env;
+use std::error;
 use std::fmt;
-use std::io::{stdin, stdout, Write};
+use std::io::{self, stdin, stdout, Write};
 
 fn main() {
     demo();
 }
 
+// Demo for the User class
 fn demo() {
     println!("\n0. Create a user directly:");
     let user = User {
@@ -26,11 +28,11 @@ fn demo() {
     user.greet();
 
     println!("\n3. Create a user from the environment:");
-    let user = User::from_env();
+    let user = User::from_env().unwrap_or_default();
     user.greet();
 
     println!("\n4. Create a user from console input:");
-    let user = User::from_stdin();
+    let user = User::from_stdin().unwrap_or_default();
     user.greet();
 
     println!("\n5. Create a user by cloning the last one:");
@@ -42,6 +44,7 @@ fn demo() {
     println!("{is_equal:#?}");
 }
 
+// The User class
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct User {
     name: String,
@@ -52,40 +55,39 @@ impl User {
         println!("Hello, {self}!")
     }
 
-    fn new(name: String) -> Self {
+    fn new(name: String) -> Result<Self, NewUserError> {
         let name = name.trim();
         if name.chars().count() > 0 {
-            return Self { name: name.into() };
+            return Ok(Self { name: name.into() });
         }
-        Self::default()
+        Err(NewUserError::InvalidName("name too short".into()))
     }
 
-    fn from_env() -> Self {
+    fn from_env() -> Result<Self, NewUserError> {
         #[cfg(target_family = "windows")]
         const USER_VAR: &str = "USERNAME";
 
         #[cfg(target_family = "unix")]
-        const USER_VAR: &str = "NAME";
+        const USER_VAR: &str = "USER";
 
-        match env::var(USER_VAR) {
-            Ok(name) => Self::from(name),
-            Err(_) => Self::default(),
-        }
+        let name = env::var(USER_VAR)?;
+        Self::new(name)
     }
 
-    fn from_stdin() -> Self {
+    fn from_stdin() -> Result<Self, NewUserError> {
         print!("What is your name? ");
         stdout().flush().unwrap();
-
         let mut input = String::new();
-        stdin().read_line(&mut input).expect("That's not a name!");
+        stdin().read_line(&mut input)?;
         Self::new(input)
     }
 }
 
 impl Default for User {
     fn default() -> Self {
-        Self::new("World".into())
+        Self {
+            name: "World".into(),
+        }
     }
 }
 
@@ -96,13 +98,55 @@ impl fmt::Display for User {
 }
 
 impl From<&str> for User {
-    fn from(name: &str) -> Self {
-        Self::new(name.into())
+    fn from(s: &str) -> Self {
+        Self { name: s.into() }
     }
 }
 
 impl From<String> for User {
     fn from(name: String) -> Self {
-        Self::new(name)
+        Self { name }
+    }
+}
+
+// Custom Result and Error for creating a new user.
+#[derive(Debug)]
+enum NewUserError {
+    InvalidName(String),
+    Io(io::Error),
+    Var(env::VarError),
+}
+
+impl From<io::Error> for NewUserError {
+    fn from(e: io::Error) -> Self {
+        Self::Io(e)
+    }
+}
+
+impl From<env::VarError> for NewUserError {
+    fn from(e: env::VarError) -> Self {
+        Self::Var(e)
+    }
+}
+
+impl error::Error for NewUserError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        use NewUserError::*;
+        match *self {
+            InvalidName(_) => None,
+            Io(ref e) => Some(e),
+            Var(ref e) => Some(e),
+        }
+    }
+}
+
+impl fmt::Display for NewUserError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use NewUserError::*;
+        match *self {
+            InvalidName(ref msg) => write!(f, "invalid name: {msg}"),
+            Io(ref e) => write!(f, "io error: {e}"),
+            Var(ref e) => write!(f, "environment error: {e}"),
+        }
     }
 }
