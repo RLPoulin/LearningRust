@@ -52,9 +52,8 @@ impl User {
         println!("Hello, {self}!");
     }
 
-    pub fn new<T: ToString>(name: T) -> Result<Self, NewUserError> {
-        let name: String = name.to_string();
-        let name = name.trim();
+    pub fn new<T: AsRef<str>>(name: T) -> Result<Self, NewUserError> {
+        let name = name.as_ref().trim();
         if name.chars().count() == 0 {
             return Err(NewUserError::InvalidName("name too short".into()));
         }
