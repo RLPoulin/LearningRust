@@ -1,8 +1,16 @@
+// Over-engineered Hello, World example.
+
 use std::default::Default;
 use std::env;
 use std::error;
 use std::fmt;
 use std::io::{self, stdin, stdout, Write};
+
+#[cfg(target_family = "windows")]
+const USER_VAR: &str = "USERNAME";
+
+#[cfg(target_family = "unix")]
+const USER_VAR: &str = "USER";
 
 // Demo for the User class
 pub fn demo() {
@@ -41,24 +49,19 @@ impl User {
     }
 
     pub fn greet(&self) {
-        println!("Hello, {self}!")
+        println!("Hello, {self}!");
     }
 
-    pub fn new(name: String) -> Result<Self, NewUserError> {
+    pub fn new<T: ToString>(name: T) -> Result<Self, NewUserError> {
+        let name: String = name.to_string();
         let name = name.trim();
-        if name.chars().count() > 0 {
-            return Ok(Self { name: name.into() });
+        if name.chars().count() == 0 {
+            return Err(NewUserError::InvalidName("name too short".into()));
         }
-        Err(NewUserError::InvalidName("name too short".into()))
+        Ok(Self { name: name.into() })
     }
 
     pub fn from_env() -> Result<Self, NewUserError> {
-        #[cfg(target_family = "windows")]
-        const USER_VAR: &str = "USERNAME";
-
-        #[cfg(target_family = "unix")]
-        const USER_VAR: &str = "USER";
-
         let name = env::var(USER_VAR)?;
         Self::new(name)
     }
@@ -74,31 +77,23 @@ impl User {
 
 impl Default for User {
     fn default() -> Self {
-        Self {
-            name: "World".into(),
-        }
+        Self::new("World").unwrap()
     }
 }
 
 impl fmt::Display for User {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.name)
+        write!(f, "{}", self.name())
     }
 }
 
-impl From<&str> for User {
-    fn from(s: &str) -> Self {
-        Self { name: s.into() }
+impl<T: Into<String>> From<T> for User {
+    fn from(name: T) -> Self {
+        Self { name: name.into() }
     }
 }
 
-impl From<String> for User {
-    fn from(name: String) -> Self {
-        Self { name }
-    }
-}
-
-// Custom Result and Error for creating a new user.
+// Custom Error for creating a new user.
 #[derive(Debug)]
 pub enum NewUserError {
     InvalidName(String),
